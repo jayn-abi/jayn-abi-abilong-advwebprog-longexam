@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import Button from '../components/Button';
 import FormError from '../components/FormError';
+import PasswordInput from '../components/PasswordInput';
 import { useAuth } from '../context/auth-context';
 import { usersApi } from '../lib/api';
 
@@ -170,9 +171,8 @@ const ProfilePage = () => {
               )}
               <div>
                 <label htmlFor="profile-current-password" className="text-sm font-semibold text-zinc-700">Current Password</label>
-                <input
+                <PasswordInput
                   id="profile-current-password"
-                  type="password"
                   autoComplete="current-password"
                   value={passwordForm.currentPassword}
                   onChange={updatePasswordField('currentPassword')}
@@ -182,9 +182,8 @@ const ProfilePage = () => {
               </div>
               <div>
                 <label htmlFor="profile-new-password" className="text-sm font-semibold text-zinc-700">New Password</label>
-                <input
+                <PasswordInput
                   id="profile-new-password"
-                  type="password"
                   autoComplete="new-password"
                   value={passwordForm.newPassword}
                   onChange={updatePasswordField('newPassword')}

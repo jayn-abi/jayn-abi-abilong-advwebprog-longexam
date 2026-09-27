@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import Button from '../../components/Button';
 import FormError from '../../components/FormError';
+import PasswordInput from '../../components/PasswordInput';
 import { usersApi } from '../../lib/api';
 
 const inputClasses =
   'mt-1 w-full rounded-lg border-2 border-zinc-200 bg-zinc-50 px-3 py-2 text-sm text-zinc-900 outline-none transition duration-150 focus:border-nu-blue focus:bg-white';
+
+const initialNewUserForm = {
+  firstName: '',
+  lastName: '',
+  username: '',
+  email: '',
+  contactNumber: '',
+  address: '',
+  type: 'customer',
+  password: '',
+};
 
 const AdminUsersPage = () => {
   const [users, setUsers] = useState([]);
@@ -13,6 +25,11 @@ const AdminUsersPage = () => {
   const [editingId, setEditingId] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [saving, setSaving] = useState(false);
+
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [newUserForm, setNewUserForm] = useState(initialNewUserForm);
+  const [addError, setAddError] = useState('');
+  const [addingUser, setAddingUser] = useState(false);
 
   const loadUsers = useCallback(async () => {
     setLoading(true);
@@ -66,9 +83,131 @@ const AdminUsersPage = () => {
     }
   };
 
+  const updateNewUserField = (field) => (e) =>
+    setNewUserForm((prev) => ({ ...prev, [field]: e.target.value }));
+
+  const handleAddUser = async (e) => {
+    e.preventDefault();
+    setAddError('');
+    setAddingUser(true);
+    try {
+      await usersApi.create(newUserForm);
+      setNewUserForm(initialNewUserForm);
+      setShowAddForm(false);
+      await loadUsers();
+    } catch (err) {
+      setAddError(err.message);
+    } finally {
+      setAddingUser(false);
+    }
+  };
+
   return (
     <div>
-      <p className="mb-6 text-sm font-medium text-zinc-400">{users.length} users</p>
+      <div className="mb-6 flex items-center justify-between">
+        <p className="text-sm font-medium text-zinc-400">{users.length} users</p>
+        {!showAddForm && (
+          <Button type="button" variant="gold" onClick={() => setShowAddForm(true)}>+ Add User</Button>
+        )}
+      </div>
+
+      {showAddForm && (
+        <div className="mb-8 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <p className="mb-5 text-[11px] font-bold uppercase tracking-[0.28em] text-nu-blue/50">New User</p>
+          <form className="grid gap-4 sm:grid-cols-2" onSubmit={handleAddUser}>
+            <FormError message={addError} />
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">First Name</label>
+              <input
+                value={newUserForm.firstName}
+                onChange={updateNewUserField('firstName')}
+                required
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Last Name</label>
+              <input
+                value={newUserForm.lastName}
+                onChange={updateNewUserField('lastName')}
+                required
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Username</label>
+              <input
+                value={newUserForm.username}
+                onChange={updateNewUserField('username')}
+                required
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Email</label>
+              <input
+                type="email"
+                value={newUserForm.email}
+                onChange={updateNewUserField('email')}
+                required
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Contact Number</label>
+              <input
+                value={newUserForm.contactNumber}
+                onChange={updateNewUserField('contactNumber')}
+                required
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Address</label>
+              <input
+                value={newUserForm.address}
+                onChange={updateNewUserField('address')}
+                required
+                className={inputClasses}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Account Type</label>
+              <select
+                value={newUserForm.type}
+                onChange={updateNewUserField('type')}
+                required
+                className={inputClasses}
+              >
+                <option value="customer">Customer</option>
+                <option value="supplier">Supplier</option>
+                <option value="admin">Admin</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-zinc-500">Password</label>
+              <PasswordInput
+                value={newUserForm.password}
+                onChange={updateNewUserField('password')}
+                autoComplete="new-password"
+                required
+                minLength={8}
+                className={inputClasses}
+              />
+            </div>
+            <div className="flex gap-2 sm:col-span-2">
+              <Button type="submit" variant="gold" disabled={addingUser}>{addingUser ? 'Creating...' : 'Create User'}</Button>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => { setShowAddForm(false); setNewUserForm(initialNewUserForm); setAddError(''); }}
+              >
+                Cancel
+              </Button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {loading && <p className="text-sm text-zinc-500">Loading users...</p>}
       <FormError message={error} />

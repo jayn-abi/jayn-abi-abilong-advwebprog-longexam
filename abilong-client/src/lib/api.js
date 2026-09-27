@@ -12,11 +12,14 @@ const FALLBACK_MESSAGES = {
   403: "You don't have permission to do that.",
   404: 'We could not find what you were looking for.',
   409: 'That already exists. Please use a different value.',
+  413: 'That file is too large. Please choose a smaller image.',
   500: 'Something went wrong on our end. Please try again later.',
 };
 
 async function request(path, { method = 'GET', body, auth = false } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+  // FormData bodies (file uploads) let the browser set the multipart boundary
+  const isFormData = body instanceof FormData;
+  const headers = isFormData ? {} : { 'Content-Type': 'application/json' };
   if (auth) {
     const token = getToken();
     if (token) headers.Authorization = `Bearer ${token}`;
@@ -25,13 +28,14 @@ async function request(path, { method = 'GET', body, auth = false } = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: body ? (isFormData ? body : JSON.stringify(body)) : undefined,
   });
 
   const data = await res.json().catch(() => ({}));
 
   if (!res.ok) {
-    const error = new Error(data.message || FALLBACK_MESSAGES[res.status] || 'Something went wrong. Please try again.');
+    const message = data.message || data.errors?.[0]?.msg;
+    const error = new Error(message || FALLBACK_MESSAGES[res.status] || 'Something went wrong. Please try again.');
     error.status = res.status;
     throw error;
   }
@@ -49,6 +53,7 @@ export const usersApi = {
   updateMe: (payload) => request('/api/users/me', { method: 'PUT', auth: true, body: payload }),
   changeMyPassword: (payload) => request('/api/users/me/password', { method: 'PUT', auth: true, body: payload }),
   list: () => request('/api/users', { auth: true }),
+  create: (payload) => request('/api/users', { method: 'POST', auth: true, body: payload }),
   get: (id) => request(`/api/users/${id}`, { auth: true }),
   update: (id, payload) => request(`/api/users/${id}`, { method: 'PUT', auth: true, body: payload }),
   remove: (id) => request(`/api/users/${id}`, { method: 'DELETE', auth: true }),
@@ -64,6 +69,12 @@ export const productsApi = {
   create: (payload) => request('/api/products', { method: 'POST', auth: true, body: payload }),
   update: (id, payload) => request(`/api/products/${id}`, { method: 'PUT', auth: true, body: payload }),
   remove: (id) => request(`/api/products/${id}`, { method: 'DELETE', auth: true }),
+  uploadImage: (id, file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    return request(`/api/products/${id}/upload-image`, { method: 'POST', auth: true, body: formData });
+  },
+  removeImage: (id) => request(`/api/products/${id}/image`, { method: 'DELETE', auth: true }),
 };
 
 export const categoriesApi = {

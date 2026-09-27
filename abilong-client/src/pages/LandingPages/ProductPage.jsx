@@ -63,7 +63,7 @@ function ProductPage() {
     );
   }
 
-  const image = resolveProductImage(product.images);
+  const image = resolveProductImage(product);
 
   return (
     <div className="flex w-full flex-col">

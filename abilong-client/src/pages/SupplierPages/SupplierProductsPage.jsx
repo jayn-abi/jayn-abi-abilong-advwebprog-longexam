@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import Button from '../../components/Button';
 import ProductForm from '../../components/ProductForm';
+import ProductThumbnail from '../../components/ProductThumbnail';
 import { categoriesApi, productsApi } from '../../lib/api';
 import { useAsync } from '../../hooks/useAsync';
 
@@ -107,12 +108,15 @@ const SupplierProductsPage = () => {
           <div className="space-y-4">
             {products.map((product) => (
               <div key={product._id} className="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm">
-                <div>
-                  <p className="font-bold text-zinc-900">{product.name}</p>
-                  <p className="text-sm text-zinc-500">{product.category?.name} · {formatPrice(product.price)} · {product.stock} in stock</p>
-                  {!product.isActive && (
-                    <span className="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Inactive</span>
-                  )}
+                <div className="flex items-center gap-4">
+                  <ProductThumbnail product={product} />
+                  <div>
+                    <p className="font-bold text-zinc-900">{product.name}</p>
+                    <p className="text-sm text-zinc-500">{product.category?.name} · {formatPrice(product.price)} · {product.stock} in stock</p>
+                    {!product.isActive && (
+                      <span className="mt-1 inline-block rounded-full bg-zinc-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-zinc-500">Inactive</span>
+                    )}
+                  </div>
                 </div>
                 <Button type="button" variant="secondary" onClick={() => openEditForm(product)}>Edit</Button>
               </div>

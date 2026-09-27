@@ -1,8 +1,11 @@
 const express = require("express");
 const cors = require("cors");
+const helmet = require("helmet");
 const connectDB = require("./config/db");
 const { PORT } = require("./config/config");
 const { HttpStatus } = require("./config/constants");
+const { auditLoggerMiddleware } = require("./middleware/auditLoggerMiddleware");
+const { handleUploadError } = require("./middleware/uploadImageMiddleware");
 const userRoutes = require("./routes/userRoutes");
 // const articleRoutes = require("./routes/articleRoutes"); // unused, kept for later
 const categoryRoutes = require("./routes/categoryRoutes");
@@ -12,6 +15,7 @@ const supplierRoutes = require("./routes/supplierRoutes");
 const cartRoutes = require("./routes/cartRoutes");
 const orderRoutes = require("./routes/orderRoutes");
 const reviewRoutes = require("./routes/reviewRoutes");
+const logRoutes = require("./routes/logRoutes");
 
 const app = express();
 
@@ -30,11 +34,31 @@ const corsOptions = {
   allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
 };
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", "data:", "blob:"],
+        connectSrc: ["'self'"],
+        fontSrc: ["'self'", "data:"],
+        objectSrc: ["'none'"],
+        frameAncestors: ["'none'"],
+        upgradeInsecureRequests: [],
+      },
+    },
+    frameguard: { action: "sameorigin" },
+    referrerPolicy: { policy: "strict-origin-when-cross-origin" },
+  })
+);
 app.use(cors(corsOptions));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+app.use(auditLoggerMiddleware);
 
 app.use("/api/users", userRoutes);
 // app.use("/api/articles", articleRoutes);
@@ -45,6 +69,10 @@ app.use("/api/suppliers", supplierRoutes);
 app.use("/api/cart", cartRoutes);
 app.use("/api/orders", orderRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/logs", logRoutes);
+
+// File size / file count / wrong field errors from multer
+app.use(handleUploadError);
 
 app.use((err, req, res, next) => {
   console.error(err.stack || err);

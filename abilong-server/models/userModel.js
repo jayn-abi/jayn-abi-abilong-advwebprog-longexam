@@ -27,6 +27,8 @@ const userSchema = new mongoose.Schema(
       ref: "Supplier",
     },
     isActive: { type: Boolean, default: true },
+    failedLoginAttempts: { type: Number, default: 0 },
+    lockUntil: { type: Date, default: null },
   },
   { timestamps: true }
 );

@@ -1,7 +1,9 @@
+import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import logo from '../assets/img/nubdexchange_logo.png';
 import { useAuth } from '../context/auth-context';
 import { useCart } from '../context/cart-context';
+import ConfirmDialog from './ConfirmDialog';
 
 const links = [
   { label: 'Home', to: '/' },
@@ -21,8 +23,15 @@ const NavBar = () => {
   const { user, logout } = useAuth();
   const { itemCount } = useCart();
   const navigate = useNavigate();
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
 
-  const handleLogout = () => {
+  const visibleLinks =
+    user && (user.type === 'admin' || user.type === 'supplier')
+      ? links.filter((link) => !['Home', 'About', 'Products'].includes(link.label))
+      : links;
+
+  const confirmLogout = () => {
+    setShowLogoutConfirm(false);
     logout();
     navigate('/');
   };
@@ -42,7 +51,7 @@ const NavBar = () => {
         </NavLink>
 
         <nav aria-label="Main navigation" className="hidden items-center gap-6 md:flex">
-          {links.map((link) => (
+          {visibleLinks.map((link) => (
             <NavLink key={link.to} to={link.to} end={link.to === '/'} className={navLinkClassName}>
               {link.label}
             </NavLink>
@@ -125,7 +134,7 @@ const NavBar = () => {
               </span>
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={() => setShowLogoutConfirm(true)}
                 className="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-nu-blue transition duration-150 hover:bg-zinc-100 cursor-pointer"
               >
                 Log Out
@@ -163,6 +172,16 @@ const NavBar = () => {
           )}
         </nav>
       </div>
+
+      <ConfirmDialog
+        open={showLogoutConfirm}
+        title="Log out?"
+        message="You'll need to sign in again to access your account."
+        confirmLabel="Log Out"
+        cancelLabel="Cancel"
+        onConfirm={confirmLogout}
+        onCancel={() => setShowLogoutConfirm(false)}
+      />
     </header>
   );
 };

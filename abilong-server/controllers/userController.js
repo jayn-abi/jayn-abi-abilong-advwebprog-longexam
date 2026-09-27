@@ -6,9 +6,21 @@ const { HttpStatus } = require("../config/constants");
 
 const USER_TYPES = ["customer", "supplier", "admin"];
 
+
+const LOCKOUT_TIERS = [
+  { attempts: 10, lockMinutes: 30 },
+  { attempts: 8, lockMinutes: 5 },
+  { attempts: 5, lockMinutes: 3 },
+];
+
+const getLockoutMinutes = (failedAttempts) => {
+  const tier = LOCKOUT_TIERS.find((t) => failedAttempts >= t.attempts);
+  return tier ? tier.lockMinutes : 0;
+};
+
 const getUsers = async (req, res) => {
   try {
-    const users = await User.find({}, "-password"); 
+    const users = await User.find({}, "-password -failedLoginAttempts -lockUntil");
     res.status(HttpStatus.OK).json({ users });
   } catch (error) {
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message });
@@ -18,7 +30,7 @@ const getUsers = async (req, res) => {
 
 const getUser = async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select("-password");
+    const user = await User.findById(req.params.id).select("-password -failedLoginAttempts -lockUntil");
     if (!user) return res.status(HttpStatus.NOT_FOUND).json({ message: "User not found" });
     res.status(HttpStatus.OK).json(user);
   } catch (error) {
@@ -29,7 +41,7 @@ const getUser = async (req, res) => {
 
 const getMe = async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select("-password");
+    const user = await User.findById(req.user.id).select("-password -failedLoginAttempts -lockUntil");
     if (!user) return res.status(HttpStatus.NOT_FOUND).json({ message: "User not found" });
     res.status(HttpStatus.OK).json(user);
   } catch (error) {
@@ -59,7 +71,7 @@ const updateMe = async (req, res) => {
 
     await user.save();
 
-    const { password, ...userWithoutPassword } = user.toObject();
+    const { password, failedLoginAttempts, lockUntil, ...userWithoutPassword } = user.toObject();
     res.status(HttpStatus.OK).json({ message: "Profile updated successfully", user: userWithoutPassword });
   } catch (error) {
     res.status(HttpStatus.BAD_REQUEST).json({ message: error.message });
@@ -99,7 +111,7 @@ const createUser = async (req, res) => {
     const user = new User(req.body); 
     await user.save();
 
-    const { password, ...userWithoutPassword } = user.toObject();
+    const { password, failedLoginAttempts, lockUntil, ...userWithoutPassword } = user.toObject();
     res.status(HttpStatus.CREATED).json(userWithoutPassword);
   } catch (error) {
     res.status(HttpStatus.BAD_REQUEST).json({ message: error.message });
@@ -107,18 +119,34 @@ const createUser = async (req, res) => {
 };
 
 
+
+const isSameUser = (req) => req.user.id === req.params.id;
+
 const updateUser = async (req, res) => {
   try {
     const user = await User.findById(req.params.id);
     if (!user) return res.status(HttpStatus.NOT_FOUND).json({ message: "User not found" });
 
-   
+    const isAdmin = req.user.type === "admin";
+    if (!isSameUser(req) && !isAdmin) {
+      return res.status(HttpStatus.FORBIDDEN).json({ message: "You can only edit your own account" });
+    }
+
     if (req.body.password) {
       user.password = req.body.password;
     }
 
-   
-    Object.assign(user, req.body);
+    if (isAdmin) {
+      Object.assign(user, req.body);
+    } else {
+      // Self-edit: block privilege escalation via type/isActive/supplier.
+      const { firstName, lastName, username, contactNumber, address } = req.body;
+      if (firstName !== undefined) user.firstName = firstName;
+      if (lastName !== undefined) user.lastName = lastName;
+      if (username !== undefined) user.username = username;
+      if (contactNumber !== undefined) user.contactNumber = contactNumber;
+      if (address !== undefined) user.address = address;
+    }
 
     await user.save();
 
@@ -128,7 +156,7 @@ const updateUser = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    const { password, ...userWithoutPassword } = user.toObject();
+    const { password, failedLoginAttempts, lockUntil, ...userWithoutPassword } = user.toObject();
     res.status(HttpStatus.OK).json({ message: "User updated successfully", user: userWithoutPassword, token });
   } catch (error) {
     res.status(HttpStatus.BAD_REQUEST).json({ message: error.message });
@@ -156,8 +184,33 @@ const loginUser = async (req, res) => {
       return res.status(HttpStatus.FORBIDDEN).json({ message: "Your account is inactive. Please contact support." });
     }
 
+    if (user.lockUntil && user.lockUntil.getTime() > Date.now()) {
+      const minutesLeft = Math.ceil((user.lockUntil.getTime() - Date.now()) / 60000);
+      return res.status(HttpStatus.FORBIDDEN).json({
+        message: `Account temporarily locked due to multiple failed login attempts. Try again in ${minutesLeft} minute(s).`,
+      });
+    }
+
     const isPasswordValid = await user.matchPassword(password);
-    if (!isPasswordValid) return res.status(HttpStatus.UNAUTHORIZED).json({ message: "Invalid credentials" });
+    if (!isPasswordValid) {
+      user.failedLoginAttempts += 1;
+      const lockMinutes = getLockoutMinutes(user.failedLoginAttempts);
+
+      if (lockMinutes > 0) {
+        user.lockUntil = new Date(Date.now() + lockMinutes * 60 * 1000);
+        await user.save();
+        return res.status(HttpStatus.FORBIDDEN).json({
+          message: `Invalid credentials. Account locked for ${lockMinutes} minute(s) after ${user.failedLoginAttempts} failed attempts.`,
+        });
+      }
+
+      await user.save();
+      return res.status(HttpStatus.UNAUTHORIZED).json({ message: "Invalid credentials" });
+    }
+
+    user.failedLoginAttempts = 0;
+    user.lockUntil = null;
+    await user.save();
 
     const token = jwt.sign(
       { id: user._id, email: user.email, type: user.type, supplier: user.supplier },
@@ -165,7 +218,7 @@ const loginUser = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    const { password: pw, ...userWithoutPassword } = user.toObject();
+    const { password: pw, failedLoginAttempts, lockUntil, ...userWithoutPassword } = user.toObject();
     res.status(HttpStatus.OK).json({ message: "Login successful", token, user: userWithoutPassword });
   } catch (error) {
     res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: error.message });
@@ -218,7 +271,7 @@ const signupUser = async (req, res) => {
       { expiresIn: "1h" }
     );
 
-    const { password: pw, ...userWithoutPassword } = user.toObject();
+    const { password: pw, failedLoginAttempts, lockUntil, ...userWithoutPassword } = user.toObject();
     res.status(HttpStatus.CREATED).json({ message: "Signup successful", user: userWithoutPassword, token });
   } catch (error) {
     if (error.code === 11000) {

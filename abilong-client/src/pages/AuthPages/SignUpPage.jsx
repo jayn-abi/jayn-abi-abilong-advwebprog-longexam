@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import Button from '../../components/Button';
-import { useAuth } from '../../context/auth-context';
+import PasswordInput from '../../components/PasswordInput';
+import { useAuth, getHomePathForUser } from '../../context/auth-context';
 
 const inputClasses =
   'mt-1.5 w-full rounded-xl border-2 border-zinc-200 bg-zinc-50 px-4 py-3 text-sm text-zinc-900 outline-none transition duration-150 placeholder:text-zinc-400 focus:border-nu-blue focus:bg-white';
@@ -36,8 +37,8 @@ const SignUpPage = () => {
     setError('');
     setSubmitting(true);
     try {
-      await signup(form);
-      navigate('/');
+      const newUser = await signup(form);
+      navigate(getHomePathForUser(newUser));
     } catch (err) {
       setError(err.message);
     } finally {
@@ -207,9 +208,8 @@ const SignUpPage = () => {
           <label htmlFor="signup-password" className="text-sm font-semibold text-zinc-700">
             Password
           </label>
-          <input
+          <PasswordInput
             id="signup-password"
-            type="password"
             placeholder="Password"
             autoComplete="new-password"
             value={form.password}

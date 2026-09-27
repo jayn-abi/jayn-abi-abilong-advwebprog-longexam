@@ -13,17 +13,19 @@ const {
   signupUser,
 } = require('../controllers/userController');
 const { protect, adminOnly } = require('../middleware/auth');
+const { registerValidation, loginValidation, updateUserValidation } = require('../middleware/validationMiddleware');
+const { loginLimiter, registerLimiter, writeLimiter } = require('../middleware/rateLimiterMiddleware');
 
 const router = express.Router();
 
-router.post('/login', loginUser);
-router.post('/register', signupUser);
+router.post('/login', loginLimiter, loginValidation, loginUser);
+router.post('/register', registerLimiter, registerValidation, signupUser);
 
 router.get('/me', protect, getMe);
-router.put('/me', protect, updateMe);
-router.put('/me/password', protect, changeMyPassword);
+router.put('/me', protect, writeLimiter, updateUserValidation, updateMe);
+router.put('/me/password', protect, writeLimiter, changeMyPassword);
 
-router.route('/').get(protect, adminOnly, getUsers).post(protect, adminOnly, createUser);
-router.route('/:id').get(protect, adminOnly, getUser).put(protect, adminOnly, updateUser).delete(protect, adminOnly, deleteUser);
+router.route('/').get(protect, adminOnly, getUsers).post(protect, adminOnly, writeLimiter, registerValidation, createUser);
+router.route('/:id').get(protect, adminOnly, getUser).put(protect, writeLimiter, updateUserValidation, updateUser).delete(protect, adminOnly, writeLimiter, deleteUser);
 
 module.exports = router;

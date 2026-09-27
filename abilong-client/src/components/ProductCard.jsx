@@ -4,7 +4,7 @@ import { resolveProductImage } from '../lib/productImages';
 const formatPrice = (value) => `₱${Number(value).toLocaleString()}`;
 
 const ProductCard = ({ product }) => {
-  const image = resolveProductImage(product.images);
+  const image = resolveProductImage(product);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm transition duration-200 hover:shadow-lg hover:-translate-y-0.5">

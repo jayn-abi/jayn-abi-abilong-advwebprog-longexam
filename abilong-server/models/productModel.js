@@ -7,6 +7,11 @@ const productSchema = new mongoose.Schema(
     price: { type: Number, required: true, min: 0 },
     stock: { type: Number, required: true, default: 0, min: 0 },
     images: { type: [String], default: [] },
+    // Primary product image stored in Cloudinary
+    image: {
+      url: { type: String, default: "" },
+      publicId: { type: String, default: "" },
+    },
     category: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Category",

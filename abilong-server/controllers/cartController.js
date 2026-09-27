@@ -4,7 +4,7 @@ const { HttpStatus } = require("../config/constants");
 
 const getCart = async (req, res) => {
   try {
-    let cart = await Cart.findOne({ user: req.user.id }).populate("items.product", "name price images");
+    let cart = await Cart.findOne({ user: req.user.id }).populate("items.product", "name price images image");
     if (!cart) cart = await Cart.create({ user: req.user.id, items: [] });
     res.status(HttpStatus.OK).json(cart);
   } catch (error) {
